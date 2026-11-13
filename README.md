@@ -1,6 +1,16 @@
 # Poincaré disk view
 
-An Obsidian view that puts one note at the center of a [Poincaré disk](https://en.wikipedia.org/wiki/Poincar%C3%A9_disk_model) and lays out the notes around it on a hyperbolic tiling. Notes a few links away get room near the center; distant notes shrink toward the rim and fade out. You see the neighborhood of the note you care about, with the rest of the vault as context, instead of one big hairball.
+**A focus view for vaults that have grown too large to see at once.**
+
+Once a vault holds hundreds or thousands of notes, the graph view stops showing structure. Every note is drawn with the same weight, the links pile up into one dense tangle, and the notes around the one you are working on are lost in the crowd.
+
+Poincaré disk view starts from a single note instead of the whole vault. It puts that note at the center of a [Poincaré disk](https://en.wikipedia.org/wiki/Poincar%C3%A9_disk_model), a picture of the hyperbolic plane in which space grows exponentially toward the rim, and places the surrounding notes on a regular hyperbolic tiling:
+
+- Notes one or two links away get large, readable cells near the center.
+- Notes farther away shrink toward the rim and fade out. They stay in view as context but no longer compete for attention.
+- Click any note and the disk glides to put it at the center, unfolding its own neighborhood.
+
+This is focus + context for your notes: one note's neighborhood in detail, and the rest of the vault as a horizon. Hyperbolic space suits link neighborhoods because both grow exponentially. A circle of radius r has circumference 2π·sinh r, so the notes two, three and four links out still fit without piling up. The approach follows the hyperbolic browser of Lamping, Rao and Pirolli (CHI '95).
 
 ## Use
 
