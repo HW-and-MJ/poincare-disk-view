@@ -57,17 +57,56 @@ export const dragTransform = (V: Mobius, p0: C, p1: C): Mobius => mNorm(mMul(mMu
 /** Focus move: at e = 0 → V0, at e = 1 the point a (as currently drawn) sits at the origin. */
 export const moveTransform = (V0: Mobius, a: C, e: number): Mobius => mMul(toOrigin(along(a, e)), V0);
 
+/** Rotation of the disk by θ about the center, as a Möbius map: f(z) = e^{iθ} z. */
+export const rotation = (th: number): Mobius => ({ a: { x: Math.cos(th / 2), y: Math.sin(th / 2) }, b: { x: 0, y: 0 } });
+
 /**
- * Positions to draw: layout positions under V, linearly blended from the previous frame's positions
- * (`from`) while a relayout transition runs (e < 1).
+ * The rotation of a new layout that best matches where its notes are drawn now (least squares over the notes in both,
+ * weighted toward the center). A relayout grows the tiling in a fixed orientation, so without this every note
+ * would swing around the disk.
+ */
+export function bestRotation(pos: Map<NodeKey, C>, from: Map<NodeKey, C>): number {
+  let sx = 0, sy = 0;
+  for (const [key, f] of from) {
+    const z = pos.get(key);
+    if (!z) continue;
+    const w = Math.max(0, 1 - abs2(f));
+    sx += w * (z.x * f.x + z.y * f.y);
+    sy += w * (z.x * f.y - z.y * f.x);
+  }
+  return sx === 0 && sy === 0 ? 0 : Math.atan2(sy, sx);
+}
+
+/** Point at fraction t along the hyperbolic geodesic from f to z. */
+export function geoLerp(f: C, z: C, t: number): C {
+  const p = mApply(toOrigin(f), z);
+  return mApply(fromOrigin(f), along(p, t));
+}
+
+/** Notes that would travel farther than this (hyperbolic distance) fade out and back in instead of flying across. */
+export const FAR = 2.5;
+
+/**
+ * Positions and opacities to draw. Layout positions are taken under V. While a relayout transition runs (e < 1),
+ * notes on screen before move from their old position along a geodesic; notes that would travel farther than FAR
+ * fade out in place and fade in at the new place; new notes fade in.
  */
 export function blendShown(pos: Map<NodeKey, C>, V: Mobius, from: Map<NodeKey, C> | null, e: number) {
-  const shown = new Map<NodeKey, C>();
+  const shown = new Map<NodeKey, C>(), alpha = new Map<NodeKey, number>();
   for (const [key, z0] of pos) {
-    let z = mApply(V, z0);
-    const f = from && from.get(key);
-    if (f && e < 1) z = { x: f.x + (z.x - f.x) * e, y: f.y + (z.y - f.y) * e };
+    let z = mApply(V, z0), a = 1;
+    const f = from && e < 1 ? from.get(key) : undefined;
+    if (f) {
+      if (hdist(f, z) > FAR) {
+        if (e < 0.5) { z = f; a = 1 - 2 * e; } else a = 2 * e - 1;
+      } else {
+        z = geoLerp(f, z, e);
+      }
+    } else if (from && e < 1) {
+      a = e;
+    }
     shown.set(key, z);
+    if (a < 1) alpha.set(key, a);
   }
-  return shown;
+  return { shown, alpha };
 }

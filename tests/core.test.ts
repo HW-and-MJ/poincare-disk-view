@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { abs2, along, distFromOrigin, fromOrigin, hdist, mApply, mMul, scaleRadial, toOrigin } from "../src/geometry.ts";
-import { buildTree, graphFromLinks } from "../src/graph.ts";
+import { buildTree, graphFromLinks, noteSignature } from "../src/graph.ts";
 import { layoutTiling, makeTiling, scaleTiling, TILING_PRESETS } from "../src/tiling.ts";
 import { layoutFocus, TilingCache } from "../src/scene.ts";
 import { DEFAULT_SETTINGS } from "../src/settings.ts";
@@ -66,4 +66,25 @@ test("layoutFocus with default settings; same cells for any λ", () => {
   const k = [...L1.pos.keys()][1];
   assert.ok(close(distFromOrigin(L2.pos.get(k)!), 0.5 * distFromOrigin(L1.pos.get(k)!), 1e-6));
   assert.equal(tc.get(7, 3), tc.get(7, 3), "cached");
+});
+
+test("tiling adjacency is symmetric, and the neighbor search matches the full scan", () => {
+  for (const [p, q] of TILING_PRESETS) {
+    const cells = makeTiling(p, q)!;
+    cells.forEach((c, i) => c.n.forEach((j) => assert.ok(cells[j].n.includes(i))));
+    assert.equal(cells[0].n.length, p, "center cell has p neighbors");
+  }
+  const cells = makeTiling(7, 3)!;
+  for (const n of [800, 5000]) {
+    const g = genGraph(n, 3, 1), T = buildTree(g, mostLinked(g), DEFAULT_SETTINGS);
+    assert.deepEqual([...layoutTiling(T, cells).cellOf], [...layoutTiling(T, cells, true).cellOf], `n=${n}`);
+  }
+});
+
+test("note signature: link and tag sets, order-free, filtered", () => {
+  assert.equal(noteSignature({ "b.md": 1, "a.md": 2 }, ["#y", "#x"]), noteSignature({ "a.md": 5, "b.md": 1 }, ["#x", "#y"]));
+  assert.notEqual(noteSignature({ "a.md": 1 }, []), noteSignature({ "a.md": 1, "c.md": 1 }, []));
+  assert.notEqual(noteSignature({ "a.md": 1 }, []), noteSignature({ "a.md": 1 }, ["#t"]));
+  assert.equal(noteSignature({ "a.md": 1, "x.png": 1 }, [], (p) => p.endsWith(".md")), noteSignature({ "a.md": 1 }, []));
+  assert.equal(noteSignature(undefined, []), noteSignature({}, []));
 });

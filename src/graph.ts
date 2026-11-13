@@ -166,3 +166,16 @@ export function isTreeEdge(T: FocusTree, a: number, b: number) {
   const pa = T.byKey.get(a), pb = T.byKey.get(b);
   return !!((pa && pa.parent && pa.parent.key === b) || (pb && pb.parent && pb.parent.key === a));
 }
+
+/**
+ * What the graph needs from one note: its outgoing links (to kept paths) and its tags. If this is unchanged
+ * after an edit, the graph is unchanged too (incoming links belong to the other notes' signatures).
+ */
+export function noteSignature(
+  dsts: Record<string, number> | undefined,
+  tags: string[],
+  keep: (path: string) => boolean = () => true,
+): string {
+  const links = Object.keys(dsts ?? {}).filter(keep).sort();
+  return links.join("\n") + "\n#" + [...tags].sort().join(" ");
+}

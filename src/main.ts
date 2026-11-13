@@ -1,6 +1,6 @@
 import { debounce, getAllTags, Plugin, TFile } from "obsidian";
 import { canFocus, pickInitialFocus } from "./focus.ts";
-import { graphFromLinks, type Graph } from "./graph.ts";
+import { graphFromLinks, noteSignature, type Graph } from "./graph.ts";
 import { assignGroups, parseGroups, type Group } from "./colors.ts";
 import { DEFAULT_SETTINGS, type PdvSettings } from "./settings.ts";
 import { FocusSearchModal } from "./search.ts";
@@ -13,6 +13,17 @@ export default class PoincareDiskPlugin extends Plugin {
   /** Graph view color groups from .obsidian/graph.json, and the group of each note. */
   groups: Group[] = [];
   noteGroup: Int32Array | null = null;
+  /** Links and tags of each note when the graph was built (see noteSignature). */
+  private signatures = new Map<string, string>();
+  /** Notes whose metadata changed since the last refresh. */
+  private dirty = new Set<string>();
+  /** A note was created, deleted or renamed since the last refresh. */
+  private structural = false;
+  /** Total number of resolved link entries when the graph was built; a cheap check for missed updates. */
+  private linkCount = -1;
+  private graphJsonMtime = -1;
+  /** Edits arrive in bursts while typing; handle them together. */
+  private scheduleRefresh = debounce(() => this.refreshGraph(), 600, true);
 
   async onload() {
     this.settings = { ...DEFAULT_SETTINGS, ...(await this.loadData()) };
@@ -29,25 +40,69 @@ export default class PoincareDiskPlugin extends Plugin {
     this.registerEvent(this.app.workspace.on("file-open", (file) => {
       if (this.settings.followActive && file && file.extension === "md") this.views().forEach((v) => v.setFocus(file.path));
     }));
-    // 'resolved' fires after the initial indexing and again after edits. Debouncing and finer updates come in M5.
-    this.registerEvent(this.app.metadataCache.on("resolved", () => this.refreshGraph()));
-    this.app.workspace.onLayoutReady(() => this.refreshGraph());
+    // Graph updates: 'changed' names the edited note, 'resolved' says its links are resolved. Create, delete and
+    // rename change the set of notes. Vault events are registered after layout-ready because 'create' also fires
+    // for every file while the vault loads.
+    // 'resolve' also covers links resolved during startup indexing, which sends no 'changed'.
+    this.registerEvent(this.app.metadataCache.on("changed", (file) => { this.dirty.add(file.path); }));
+    this.registerEvent(this.app.metadataCache.on("resolve", (file) => { this.dirty.add(file.path); }));
+    this.registerEvent(this.app.metadataCache.on("resolved", () => this.scheduleRefresh()));
+    this.app.workspace.onLayoutReady(() => {
+      const structural = () => { this.structural = true; this.scheduleRefresh(); };
+      this.registerEvent(this.app.vault.on("create", structural));
+      this.registerEvent(this.app.vault.on("delete", structural));
+      this.registerEvent(this.app.vault.on("rename", structural));
+      this.refreshGraph(true);
+    });
   }
 
-  refreshGraph() {
-    const files = this.app.vault.getMarkdownFiles();
-    const tags: Record<string, string[]> = {};
-    for (const f of files) {
-      const cache = this.app.metadataCache.getFileCache(f);
-      tags[f.path] = (cache && getAllTags(cache)) || [];
+  private countLinks() {
+    let n = 0;
+    for (const dsts of Object.values(this.app.metadataCache.resolvedLinks)) n += Object.keys(dsts).length;
+    return n;
+  }
+
+  private tagsOf(file: TFile) {
+    const cache = this.app.metadataCache.getFileCache(file);
+    return (cache && getAllTags(cache)) || [];
+  }
+
+  private signatureOf(path: string, isNote: (p: string) => boolean) {
+    const f = this.app.vault.getAbstractFileByPath(path);
+    return f instanceof TFile ? noteSignature(this.app.metadataCache.resolvedLinks[path], this.tagsOf(f), isNote) : "";
+  }
+
+  /**
+   * Rebuild the graph, unless only note contents changed and none of their links or tags did (the usual case while
+   * typing). Views carry what is on screen over to the new graph and blend into the new layout.
+   */
+  refreshGraph(force = false) {
+    const isNote = (p: string) => p.endsWith(".md") && this.app.vault.getAbstractFileByPath(p) instanceof TFile;
+    if (!force && this.graph && !this.structural && this.countLinks() === this.linkCount) {
+      const changed = [...this.dirty].some((p) => this.signatureOf(p, isNote) !== (this.signatures.get(p) ?? ""));
+      this.dirty.clear();
+      if (!changed) return;
     }
-    const md = new Set(files.map((f) => f.path));
-    this.graph = graphFromLinks(this.app.metadataCache.resolvedLinks, tags, (p) => md.has(p));
+    this.dirty.clear();
+    this.structural = false;
+
+    const files = this.app.vault.getMarkdownFiles();
+    const md = new Set(files.map((f) => f.path)), keep = (p: string) => md.has(p);
+    const tags: Record<string, string[]> = {};
+    this.signatures.clear();
+    for (const f of files) {
+      tags[f.path] = this.tagsOf(f);
+      this.signatures.set(f.path, noteSignature(this.app.metadataCache.resolvedLinks[f.path], tags[f.path], keep));
+    }
+    this.linkCount = this.countLinks();
+    const old = this.graph;
+    this.graph = graphFromLinks(this.app.metadataCache.resolvedLinks, tags, keep);
     this.noteGroup = assignGroups(this.groups, this.graph.paths, this.graph.tags);
     void this.loadGroups();
     for (const v of this.views()) {
-      if (v.focusPath && this.canFocus(v.focusPath)) v.relayout();
-      else v.resetFocus(this.initialFocus());
+      if (!v.focusPath || !this.canFocus(v.focusPath)) v.resetFocus(this.initialFocus());
+      else if (old) v.graphChanged(old, this.graph);
+      else v.relayout();
     }
   }
 
@@ -56,9 +111,13 @@ export default class PoincareDiskPlugin extends Plugin {
    * its format is not public and may change. A missing or broken file means no groups.
    */
   async loadGroups() {
+    const path = `${this.app.vault.configDir}/graph.json`;
     let groups: Group[] = [];
     try {
-      groups = parseGroups(await this.app.vault.adapter.read(`${this.app.vault.configDir}/graph.json`));
+      const mtime = (await this.app.vault.adapter.stat(path))?.mtime ?? 0;
+      if (mtime === this.graphJsonMtime) return; // unchanged since last read; noteGroup is kept current by refreshGraph
+      this.graphJsonMtime = mtime;
+      groups = parseGroups(await this.app.vault.adapter.read(path));
     } catch {
       groups = [];
     }

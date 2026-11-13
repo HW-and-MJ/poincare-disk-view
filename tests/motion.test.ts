@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { abs2, mApply, M_ID } from "../src/geometry.ts";
-import { blendShown, diskOf, dragTransform, hitTest, moveTransform, toDisk } from "../src/motion.ts";
+import { abs2, hdist, mApply, M_ID } from "../src/geometry.ts";
+import { bestRotation, blendShown, diskOf, dragTransform, FAR, geoLerp, hitTest, moveTransform, rotation, toDisk } from "../src/motion.ts";
 import { layoutFocus, TilingCache } from "../src/scene.ts";
 import { DEFAULT_SETTINGS } from "../src/settings.ts";
 import { genGraph, mostLinked } from "./fake-graph.ts";
@@ -32,20 +32,43 @@ test("hit test finds the cell under the pointer in both styles", () => {
   for (const style of ["cell", "node"] as const) {
     const s = { ...DEFAULT_SETTINGS, style };
     const L = layoutFocus(g, focus, s, tc), cells = tc.view(s.p, s.q, s.cellScale);
-    const shown = blendShown(L.pos, M_ID, null, 1);
+    const { shown } = blendShown(L.pos, M_ID, null, 1);
     const c = screen({ x: 0, y: 0 });
     assert.equal(hitTest(shown, c.px, c.py, s, cells, f), focus, style + " center");
     const other = L.T.nodes[3].key, o = screen(shown.get(other)!);
     assert.equal(hitTest(shown, o.px, o.py, s, cells, f), other, style + " other");
   }
   const s = DEFAULT_SETTINGS, L = layoutFocus(g, focus, s, tc);
-  assert.equal(hitTest(blendShown(L.pos, M_ID, null, 1), 1, 1, s, tc.view(7, 3, 1), f), null, "outside the disk");
+  assert.equal(hitTest(blendShown(L.pos, M_ID, null, 1).shown, 1, 1, s, tc.view(7, 3, 1), f), null, "outside the disk");
 });
 
-test("blend goes from the old positions to the new ones", () => {
-  const pos = new Map<number, { x: number; y: number }>([[1, { x: 0.5, y: 0 }], [2, { x: 0, y: 0.5 }]]);
-  const from = new Map([[1, { x: -0.5, y: 0 }]]);
-  assert.deepEqual(blendShown(pos, M_ID, from, 0).get(1), { x: -0.5, y: 0 });
-  assert.deepEqual(blendShown(pos, M_ID, from, 0.5).get(1), { x: 0, y: 0 });
-  assert.deepEqual(blendShown(pos, M_ID, from, 0).get(2), { x: 0, y: 0.5 }, "new node is placed directly");
+test("blend: geodesic path, far notes fade out and in, new notes fade in", () => {
+  const near = { x: 0.3, y: 0 }, nearFrom = { x: -0.3, y: 0 };
+  const far = { x: 0.95, y: 0 }, farFrom = { x: -0.95, y: 0 };
+  const pos = new Map<number, { x: number; y: number }>([[1, near], [2, far], [3, { x: 0, y: 0.5 }]]);
+  const from = new Map([[1, nearFrom], [2, farFrom]]);
+  assert.ok(hdist(farFrom, far) > FAR && hdist(nearFrom, near) < FAR);
+  const at = (e: number) => blendShown(pos, M_ID, from, e);
+  assert.deepEqual(at(0).shown.get(1), nearFrom);
+  const mid = at(0.5).shown.get(1)!;
+  assert.ok(Math.abs(hdist(nearFrom, mid) - hdist(mid, near)) < 1e-9, "halfway along the geodesic");
+  assert.deepEqual(at(0.25).shown.get(2), farFrom, "far note stays put while fading out");
+  assert.ok(Math.abs(at(0.25).alpha.get(2)! - 0.5) < 1e-9);
+  assert.deepEqual(at(0.75).shown.get(2), far, "then fades in at the new place");
+  assert.ok(Math.abs(at(0.75).alpha.get(2)! - 0.5) < 1e-9);
+  assert.equal(at(0.4).alpha.get(3), 0.4, "new note fades in");
+  assert.equal(at(1).alpha.size, 0);
+  assert.deepEqual(at(1).shown.get(1), near);
+});
+
+test("geoLerp ends at both points; bestRotation recovers a rotation", () => {
+  const a = { x: 0.2, y: -0.6 }, b = { x: -0.5, y: 0.4 };
+  const e0 = geoLerp(a, b, 0), e1 = geoLerp(a, b, 1);
+  assert.ok(hdist(e0, a) < 1e-9 && hdist(e1, b) < 1e-9);
+  const g = genGraph(800, 2, 7), L = layoutFocus(g, mostLinked(g), DEFAULT_SETTINGS, new TilingCache());
+  for (const th of [0.7, -2.1, 3]) {
+    const R = rotation(th), from = new Map([...L.pos].map(([k, z]) => [k, mApply(R, z)]));
+    const got = bestRotation(L.pos, from);
+    assert.ok(Math.abs(Math.atan2(Math.sin(got - th), Math.cos(got - th))) < 1e-9, `θ ${th} → ${got}`);
+  }
 });

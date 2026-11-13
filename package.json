@@ -1,6 +1,6 @@
 {
   "name": "poincare-disk-view",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Obsidian plugin: shows the notes around a focused note on a Poincaré disk with a hyperbolic {p,q} tiling.",
   "main": "main.js",
   "private": true,

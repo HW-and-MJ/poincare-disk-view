@@ -31,8 +31,10 @@ export interface Scene {
   hover: NodeKey | null;
   /** Fill color per node (see scene.ts colorer). */
   color: (n: TreeNode) => string;
-  /** Opacity per node (fade-in of notes new to the screen during a transition); 1 when absent. */
+  /** Opacity per node during a transition; 1 when absent. */
   alpha?: (key: NodeKey) => number;
+  /** Notes leaving the screen during a transition, drawn as fading dots. */
+  ghosts?: { z: C; color: string; alpha: number }[];
   s: PdvSettings;
 }
 
@@ -95,6 +97,16 @@ export function drawScene(ctx: CanvasRenderingContext2D, f: Frame, sc: Scene | n
     .filter((n) => vis(shown.get(n.key)))
     .sort((a, b) => abs2(shown.get(b.key)!) - abs2(shown.get(a.key)!)); // edge first, center on top
   const label = (n: TreeNode) => (n.id < 0 ? `+${n.count}` : g.names[n.id]);
+  for (const gh of sc.ghosts ?? []) {
+    if (!vis(gh.z)) continue;
+    const p = scr(gh.z);
+    ctx.globalAlpha = gh.alpha;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(1.5 * dpr, cellPx(gh.z) * s.nodeFill * 0.5), 0, 2 * Math.PI);
+    ctx.fillStyle = gh.color;
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 
   const drawCross = (color: string) => {
     ctx.beginPath();

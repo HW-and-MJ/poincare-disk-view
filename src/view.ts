@@ -1,8 +1,8 @@
 import { ItemView, setIcon, WorkspaceLeaf } from "obsidian";
 import type PoincareDiskPlugin from "./main";
 import { abs2, M_ID, type C, type Mobius } from "./geometry.ts";
-import { noteName, type NodeKey } from "./graph.ts";
-import { blendShown, dragTransform, ease, hitTest, moveTransform, toDisk, type Frame } from "./motion.ts";
+import { noteName, type Graph, type NodeKey } from "./graph.ts";
+import { bestRotation, blendShown, dragTransform, ease, hitTest, moveTransform, rotation, toDisk, type Frame } from "./motion.ts";
 import { buildPanel } from "./panel.ts";
 import { drawScene, type Theme } from "./render.ts";
 import { colorer, layoutFocus, legendItems, TilingCache, type ColorContext, type Layout } from "./scene.ts";
@@ -12,7 +12,7 @@ export const VIEW_TYPE = "poincare-disk-view";
 
 type Anim =
   | { type: "move"; V0: Mobius; a: C; t0: number; dur: number }
-  | { type: "blend"; from: Map<NodeKey, C>; t0: number; dur: number };
+  | { type: "blend"; from: Map<NodeKey, C>; colors: Map<NodeKey, string>; t0: number; dur: number };
 
 /** Two clicks within this time and distance count as a double-click. */
 const DBL_MS = 400, DBL_PX = 6, DRAG_PX = 4;
@@ -32,6 +32,8 @@ export class PoincareDiskView extends ItemView {
   private needsLayout = false;
   /** View transform from drag and focus-move animation. */
   private V: Mobius = M_ID;
+  /** Rotation chosen at the last relayout; "Re-center" returns here. */
+  private baseV: Mobius = M_ID;
   private anim: Anim | null = null;
   /** Positions drawn in the last frame. */
   private shown = new Map<NodeKey, C>();
@@ -70,7 +72,7 @@ export class PoincareDiskView extends ItemView {
       return b;
     };
     button("search", "Find a note to put at the center", () => this.plugin.openSearch(this));
-    button("locate-fixed", "Re-center", () => { this.V = M_ID; this.anim = null; this.requestDraw(); });
+    button("locate-fixed", "Re-center", () => { this.V = this.baseV; this.anim = null; this.requestDraw(); });
     const gear = button("settings", "Settings", () => {
       const open = !this.panelEl.hasClass("is-open");
       this.panelEl.toggleClass("is-open", open);
@@ -84,6 +86,9 @@ export class PoincareDiskView extends ItemView {
     this.registerDomEvent(this.canvas, "pointerup", (ev) => this.onPointerUp(ev));
     this.registerDomEvent(this.canvas, "pointerleave", () => this.setHover(null));
     this.registerEvent(this.app.workspace.on("css-change", () => { this.readAccent(); this.requestDraw(); }));
+    // A hidden view postpones layout work; draw (and catch up) when it is shown again.
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.requestDraw()));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.requestDraw()));
     this.resetFocus(this.plugin.initialFocus());
   }
 
@@ -119,24 +124,52 @@ export class PoincareDiskView extends ItemView {
   resetFocus(path: string | null) {
     this.focusPath = path;
     this.notice = null;
-    this.V = M_ID;
+    this.V = this.baseV = M_ID;
     this.anim = null;
     this.relayout();
   }
 
   /**
-   * Recompute positions. With transition, the view resets and positions blend from what is on screen;
-   * without it (settings changed), the current drag offset is kept.
+   * The plugin rebuilt the graph; node keys are graph indices and may have shifted. Carry what is on screen over
+   * by note path, then blend into the new layout.
    */
-  relayout(transition = false) {
-    if (transition) {
-      const from = this.layout ? new Map(this.shown) : null;
-      this.V = M_ID;
-      this.computeLayout();
-      this.anim = from ? { type: "blend", from, t0: performance.now(), dur: 500 } : null;
-    } else {
+  graphChanged(oldG: Graph, newG: Graph) {
+    const remap = (k: NodeKey): NodeKey | undefined => {
+      if (typeof k === "number") return newG.index.get(oldG.paths[k]);
+      const id = newG.index.get(oldG.paths[Number(k.slice(3))]);
+      return id === undefined ? undefined : "agg" + id;
+    };
+    const shown = new Map<NodeKey, C>();
+    for (const [k, z] of this.shown) { const nk = remap(k); if (nk !== undefined) shown.set(nk, z); }
+    this.shown = shown;
+    this.hover = null;
+    this.layout = null; // old keys are meaningless now; relayout blends from `shown`
+    this.relayout(true, true);
+  }
+
+  private visible() { return this.contentEl.clientWidth > 0 && this.contentEl.clientHeight > 0; }
+
+  /**
+   * Recompute positions. With transition, positions blend from what is on screen into the new layout, rotated to
+   * match it as closely as possible; without it (settings changed), the current drag offset is kept.
+   * A hidden view only marks the layout stale.
+   */
+  relayout(transition = false, fromShown = false) {
+    if (!transition || !this.visible()) {
       this.needsLayout = true;
+      if (transition) { this.anim = null; this.V = this.baseV = M_ID; }
+      this.requestDraw();
+      return;
     }
+    const from = this.layout || fromShown ? new Map(this.shown) : null;
+    const colors = new Map<NodeKey, string>();
+    if (from && this.layout) {
+      const color = colorer(this.plugin.settings, this.colorContext());
+      for (const n of this.layout.T.nodes) colors.set(n.key, color(n));
+    }
+    this.computeLayout();
+    this.V = this.baseV = from && this.layout ? rotation(bestRotation(this.layout.pos, from)) : M_ID;
+    this.anim = from ? { type: "blend", from, colors, t0: performance.now(), dur: 550 } : null;
     this.requestDraw();
   }
 
@@ -179,7 +212,7 @@ export class PoincareDiskView extends ItemView {
         this.setHover(null);
         this.canvas.addClass("is-dragging");
         // A drag cuts a running focus move short: jump to the new layout.
-        if (this.anim?.type === "move") { this.anim = null; this.V = M_ID; this.computeLayout(); }
+        if (this.anim?.type === "move") { this.anim = null; this.V = this.baseV = M_ID; this.computeLayout(); }
       }
       if (press.drag) {
         const { px, py } = this.devicePoint(ev), p1 = toDisk(px, py, this.frameSize());
@@ -283,31 +316,36 @@ export class PoincareDiskView extends ItemView {
     if (c.height !== f.h) c.height = f.h;
     if (this.needsLayout) this.computeLayout();
 
-    let from: Map<NodeKey, C> | null = null, e = 1;
+    let from: Map<NodeKey, C> | null = null, colors: Map<NodeKey, string> | null = null, e = 1;
     const anim = this.anim;
     if (anim) {
       const t = Math.min(1, (now - anim.t0) / anim.dur), k = ease(t);
       if (anim.type === "move") {
         this.V = moveTransform(anim.V0, anim.a, k);
         if (t >= 1 && this.layout) {
-          this.shown = blendShown(this.layout.pos, this.V, null, 1);
+          this.shown = blendShown(this.layout.pos, this.V, null, 1).shown;
           this.relayout(true); // starts the blend into the new layout
           return;
         }
       } else {
         from = anim.from;
+        colors = anim.colors;
         e = k;
       }
       if (t >= 1) this.anim = null;
     }
 
     const g = this.plugin.graph, L = this.layout, s = this.plugin.settings;
-    this.shown = L ? blendShown(L.pos, this.V, from, e) : new Map();
-    const fade = from, cc = this.colorContext();
+    const blended = L ? blendShown(L.pos, this.V, from, e) : null;
+    this.shown = blended ? blended.shown : new Map();
+    const cc = this.colorContext(), alpha = blended?.alpha;
+    const ghosts = [];
+    if (from && L) for (const [k, z] of from) if (!L.pos.has(k)) ghosts.push({ z, color: colors?.get(k) ?? "#888", alpha: 1 - e });
     const scene = g && L ? {
       g, T: L.T, cellOf: L.cellOf, cells: this.tilings.view(s.p, s.q, s.cellScale),
       V: this.V, shown: this.shown, hover: this.hover, s, color: colorer(s, cc),
-      alpha: fade ? (key: NodeKey) => (fade.has(key) ? 1 : e) : undefined,
+      alpha: alpha && alpha.size ? (key: NodeKey) => alpha.get(key) ?? 1 : undefined,
+      ghosts,
     } : null;
     const nVis = drawScene(c.getContext("2d")!, f, scene, this.theme());
     this.showStats(nVis);

@@ -1,7 +1,7 @@
 {
   "id": "poincare-disk-view",
   "name": "Poincaré disk view",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minAppVersion": "1.5.0",
   "description": "Puts a note at the center of a Poincaré disk and places related notes on a hyperbolic tiling around it.",
   "author": "jmj3078",
