@@ -8,6 +8,13 @@
 
 Once a vault holds hundreds or thousands of notes, the graph view stops showing structure. Every note is drawn with the same weight, the links pile up into one dense tangle, and the notes around the one you are working on are lost in the crowd.
 
+<table>
+  <tr>
+    <td align="center" width="50%"><img src="docs/graph-view.gif" width="400" alt="The built-in graph view showing 800 notes as one dense tangle"><br><sub>Built-in graph view, 800 notes (screen recording)</sub></td>
+    <td align="center" width="50%"><img src="docs/compare-disk.png" width="400" alt="Poincaré disk view of the same 800 notes, centered on one note"><br><sub>Poincaré disk view: the same 800 notes and group colors, centered on one note</sub></td>
+  </tr>
+</table>
+
 Poincaré disk view starts from a single note instead of the whole vault. It puts that note at the center of a [Poincaré disk](https://en.wikipedia.org/wiki/Poincar%C3%A9_disk_model), a picture of the hyperbolic plane in which space grows exponentially toward the rim, and places the surrounding notes on a regular hyperbolic tiling:
 
 - Notes one or two links away get large, readable cells near the center.
