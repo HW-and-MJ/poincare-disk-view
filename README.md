@@ -1,4 +1,4 @@
-# Poincaré disk view
+# Poincare disk view
 
 **A focus view for vaults that have grown too large to see at once.**
 
