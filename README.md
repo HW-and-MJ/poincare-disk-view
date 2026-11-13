@@ -54,7 +54,15 @@ Requires Obsidian 1.7.2 or later. Desktop only for now.
 
 ## Privacy
 
-The plugin works entirely offline. It reads your notes' links and tags from Obsidian's metadata cache and the graph view's color groups from `.obsidian/graph.json`. It makes no network requests and collects no telemetry.
+The plugin works entirely offline. It makes no network requests and collects no telemetry.
+
+To build the graph it reads, for every Markdown note in the vault:
+
+- the note's path (via `vault.getMarkdownFiles()`), so notes can be placed and opened,
+- its resolved links (`metadataCache.resolvedLinks`), which define the graph,
+- its tags (from the metadata cache), for graph view group queries such as `tag:#idea`.
+
+It also reads the graph view's color groups from `.obsidian/graph.json`. Note contents are never read, nothing is written to your notes, and this data stays in memory on your device.
 
 ## Development
 
