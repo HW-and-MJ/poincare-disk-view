@@ -1,0 +1,54 @@
+# Builds and attaches main.js, manifest.json and styles.css to a draft release when a version tag is pushed.
+# The tag must equal the version in manifest.json, without a "v" (e.g. 0.1.0).
+# Based on https://docs.obsidian.md/Plugins/Releasing/Release+your+plugin+with+GitHub+Actions
+name: Release Obsidian plugin
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+
+      - name: Check tag matches manifest version
+        run: |
+          version=$(node -p "require('./manifest.json').version")
+          if [ "$version" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match manifest.json version $version" && exit 1
+          fi
+
+      - name: Build and test
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+
+      - name: Create draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title="${GITHUB_REF_NAME}" \
+            --draft \
+            main.js manifest.json styles.css
