@@ -14,8 +14,10 @@
   "author": "jmj3078",
   "license": "MIT",
   "devDependencies": {
+    "@napi-rs/canvas": "1.1.0",
     "@types/node": "^22.20.5",
     "esbuild": "^0.28.2",
+    "gifenc": "^1.0.3",
     "obsidian": "^1.14.4",
     "typescript": "~5.9"
   }

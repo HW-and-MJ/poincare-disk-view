@@ -2,6 +2,10 @@
 
 **A focus view for vaults that have grown too large to see at once.**
 
+![Poincaré disk view: clicking a note brings it to the center, dragging looks around, and notes can be drawn as nodes or as tiling cells](docs/demo.gif)
+
+<sub>Rendered with the plugin's own layout and drawing code on a generated vault of 800 notes, in Obsidian's default dark theme.</sub>
+
 Once a vault holds hundreds or thousands of notes, the graph view stops showing structure. Every note is drawn with the same weight, the links pile up into one dense tangle, and the notes around the one you are working on are lost in the crowd.
 
 Poincaré disk view starts from a single note instead of the whole vault. It puts that note at the center of a [Poincaré disk](https://en.wikipedia.org/wiki/Poincar%C3%A9_disk_model), a picture of the hyperbolic plane in which space grows exponentially toward the rim, and places the surrounding notes on a regular hyperbolic tiling:
