@@ -24,7 +24,7 @@ export function buildPanel(el: HTMLElement, host: PanelHost) {
   const slider = (parent: HTMLElement, sp: SliderSpec) => {
     const st = new Setting(parent).setName(sp.label);
     if (sp.desc) st.setDesc(sp.desc);
-    st.addSlider((c) => c.setLimits(sp.min, sp.max, sp.step).setValue(s[sp.key]).setDynamicTooltip().setInstant(true)
+    st.addSlider((c) => c.setLimits(sp.min, sp.max, sp.step).setValue(s[sp.key]).setInstant(true)
       .onChange((v) => set({ [sp.key]: v })));
   };
   const toggle = (parent: HTMLElement, key: ToggleSpec["key"]) => {

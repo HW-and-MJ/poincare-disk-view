@@ -93,7 +93,7 @@ export class PoincareDiskView extends ItemView {
   }
 
   async onClose() {
-    if (this.frame) cancelAnimationFrame(this.frame);
+    if (this.frame) window.cancelAnimationFrame(this.frame);
   }
 
   onResize() { this.requestDraw(); }
@@ -264,13 +264,12 @@ export class PoincareDiskView extends ItemView {
 
   requestDraw() {
     if (this.frame) return;
-    this.frame = requestAnimationFrame((now) => { this.frame = 0; this.draw(now); });
+    this.frame = window.requestAnimationFrame((now) => { this.frame = 0; this.draw(now); });
   }
 
   /** Theme accent → palette shades. The variable may hold calc() text, so let the browser resolve it to rgb(). */
   private readAccent() {
-    const probe = this.contentEl.createDiv();
-    probe.style.color = "var(--color-accent, var(--interactive-accent))";
+    const probe = this.contentEl.createDiv({ cls: "pdv-accent-probe" });
     const rgb = parseCssRgb(getComputedStyle(probe).color);
     probe.remove();
     this.accent = rgb ? accentColors(rgb) : null;
@@ -337,7 +336,7 @@ export class PoincareDiskView extends ItemView {
 
     const g = this.plugin.graph, L = this.layout, s = this.plugin.settings;
     const blended = L ? blendShown(L.pos, this.V, from, e) : null;
-    this.shown = blended ? blended.shown : new Map();
+    this.shown = blended ? blended.shown : new Map<NodeKey, C>();
     const cc = this.colorContext(), alpha = blended?.alpha;
     const ghosts = [];
     if (from && L) for (const [k, z] of from) if (!L.pos.has(k)) ghosts.push({ z, color: colors?.get(k) ?? "#888", alpha: 1 - e });

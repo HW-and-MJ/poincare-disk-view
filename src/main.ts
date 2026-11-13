@@ -1,4 +1,4 @@
-import { debounce, getAllTags, Plugin, TFile } from "obsidian";
+import { debounce, getAllTags, normalizePath, Plugin, TFile } from "obsidian";
 import { canFocus, pickInitialFocus } from "./focus.ts";
 import { graphFromLinks, noteSignature, type Graph } from "./graph.ts";
 import { assignGroups, parseGroups, type Group } from "./colors.ts";
@@ -26,7 +26,8 @@ export default class PoincareDiskPlugin extends Plugin {
   private scheduleRefresh = debounce(() => this.refreshGraph(), 600, true);
 
   async onload() {
-    this.settings = { ...DEFAULT_SETTINGS, ...(await this.loadData()) };
+    const saved = (await this.loadData()) as Partial<PdvSettings> | null;
+    this.settings = { ...DEFAULT_SETTINGS, ...saved };
     this.registerView(VIEW_TYPE, (leaf) => new PoincareDiskView(leaf, this));
     this.addRibbonIcon("circle-dot", "Open Poincaré disk view", () => this.openView());
     this.addCommand({ id: "open", name: "Open view", callback: () => this.openView() });
@@ -111,7 +112,7 @@ export default class PoincareDiskPlugin extends Plugin {
    * its format is not public and may change. A missing or broken file means no groups.
    */
   async loadGroups() {
-    const path = `${this.app.vault.configDir}/graph.json`;
+    const path = normalizePath(`${this.app.vault.configDir}/graph.json`);
     let groups: Group[] = [];
     try {
       const mtime = (await this.app.vault.adapter.stat(path))?.mtime ?? 0;

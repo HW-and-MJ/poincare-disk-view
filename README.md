@@ -50,7 +50,11 @@ Graph view groups are read from `.obsidian/graph.json`. Only `path:`, `file:`, `
 
 Until the plugin is listed in Community plugins: download `main.js`, `manifest.json` and `styles.css` from the latest release into `<vault>/.obsidian/plugins/poincare-disk-view/`, then enable the plugin. Or install with [BRAT](https://github.com/TfTHacker/obsidian42-brat) using this repository's URL.
 
-Desktop only for now.
+Requires Obsidian 1.7.2 or later. Desktop only for now.
+
+## Privacy
+
+The plugin works entirely offline. It reads your notes' links and tags from Obsidian's metadata cache and the graph view's color groups from `.obsidian/graph.json`. It makes no network requests and collects no telemetry.
 
 ## Development
 

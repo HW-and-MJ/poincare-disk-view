@@ -100,14 +100,28 @@ export function matchNote(clauses: Query, path: string, tags: string[]) {
 
 export interface Group { query: string; clauses: Query; color: string }
 
+/** One entry of graph.json `colorGroups` as found on disk (the format is not public, so every field is checked). */
+interface RawGroup { query?: unknown; color?: unknown }
+
+const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null;
+
+function groupColor(c: unknown): string {
+  if (typeof c === "string") return c;
+  const rgb = isObject(c) && typeof c.rgb === "number" ? c.rgb : 0;
+  return "#" + (rgb | 0).toString(16).padStart(6, "0");
+}
+
 /** Whole graph.json or a bare colorGroups array. color is {rgb: int} or '#hex'. */
 export function parseGroups(text: string): Group[] {
-  const j = JSON.parse(text), arr = Array.isArray(j) ? j : j.colorGroups || [];
-  return arr.filter((x: any) => x && x.query).map((x: any) => ({
-    query: x.query,
-    clauses: parseQuery(x.query),
-    color: typeof x.color === "string" ? x.color : "#" + ((x.color && x.color.rgb) | 0).toString(16).padStart(6, "0"),
-  }));
+  const j: unknown = JSON.parse(text);
+  const arr: unknown = Array.isArray(j) ? j : isObject(j) ? j.colorGroups : undefined;
+  if (!Array.isArray(arr)) return [];
+  const groups: Group[] = [];
+  for (const x of arr as RawGroup[]) {
+    if (!isObject(x) || typeof x.query !== "string" || !x.query) continue;
+    groups.push({ query: x.query, clauses: parseQuery(x.query), color: groupColor(x.color) });
+  }
+  return groups;
 }
 
 /** First matching group from the top (unverified: Obsidian's precedence). */

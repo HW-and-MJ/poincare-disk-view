@@ -96,3 +96,10 @@
   border-radius: 2px;
   flex: none;
 }
+
+/* Resolves the theme accent to rgb() for the palette (read once, then removed). */
+.pdv-accent-probe {
+  position: absolute;
+  visibility: hidden;
+  color: var(--color-accent, var(--interactive-accent));
+}

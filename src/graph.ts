@@ -44,7 +44,7 @@ export function graphFromLinks(
     names: paths.map(noteName),
     paths,
     tags: paths.map((p) => tags[p] || []),
-    adj: paths.map(() => new Map()),
+    adj: paths.map(() => new Map<number, number>()),
     index,
   };
   for (const [a, b, w] of pairs) addEdge(g, a, b, w);
