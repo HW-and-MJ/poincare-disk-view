@@ -66,12 +66,21 @@
   z-index: 3;
 }
 .pdv-panel.is-open { display: block; }
+/* Section titles (Display, Layout, Size, Behavior): larger than the settings, with a rule between sections. */
 .pdv-panel-heading {
-  margin-top: var(--size-4-2);
-  font-size: var(--font-ui-small);
-  font-weight: var(--font-semibold);
-  color: var(--text-muted);
+  margin-top: var(--size-4-4);
+  padding-top: var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-bold);
+  color: var(--text-normal);
 }
+.pdv-panel-heading:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.pdv-panel-section { margin-top: var(--size-2-2); }
 .pdv-panel .setting-item { padding: var(--size-4-1) 0; border-top: none; }
 .pdv-panel .setting-item-name { font-size: var(--font-ui-small); }
 .pdv-panel .setting-item-description { font-size: var(--font-ui-smaller); }
@@ -103,3 +112,16 @@
   visibility: hidden;
   color: var(--color-accent, var(--interactive-accent));
 }
+
+/* Probe for the graph view's node color (view.ts readAccent); only its computed color is read. */
+.pdv-graph-probe { display: none; }
+
+/* Disk over the graph view (graph-overlay.ts); the graph view stays underneath. */
+.pdv-graph-host { position: relative; }
+.pdv-root.pdv-graph-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: var(--background-primary);
+}
+.pdv-text-probe { display: none; color: var(--text-normal); }

@@ -1,9 +1,13 @@
 // Palettes and graph-view group queries. Ported from the prototype CORE.
 
-export type PaletteId = "accent" | "default" | "okabe" | "pastel" | "viridis" | "magma" | "cividis" | "cool" | "warm" | "mono";
+export type PaletteId = "accent" | "default" | "okabe" | "pastel" | "viridis" | "magma" | "cividis" | "cool" | "warm";
 interface Palette { name: string; type: "cat" | "seq"; c: string[] }
 
-/** seq: interpolated from hop 0 (focus, brightest) to max hop. cat: one distinct color per hop. */
+/**
+ * seq: colors listed from light to dark. Near notes take the color that stands out most from the background and far
+ * notes the one closest to it, so shade agrees with the distance fade (which blends far notes into the background):
+ * on a light background the focus is darkest, on a dark background (`dark`) it is lightest. cat: one color per hop.
+ */
 export const PALETTES: Record<PaletteId, Palette> = {
   // Colors filled in at runtime from the theme accent (accentColors); the purple shades are the fallback.
   accent: { name: "Theme accent", type: "seq", c: ["#e6dcff", "#b9a2ff", "#8c6cf0", "#6142c4", "#3a2580"] },
@@ -15,17 +19,17 @@ export const PALETTES: Record<PaletteId, Palette> = {
   cividis: { name: "Cividis", type: "seq", c: ["#fee838", "#c3b369", "#8f8a74", "#5f6a75", "#2a4c6b", "#00224e"] },
   cool: { name: "Cool (cyan → violet)", type: "seq", c: ["#6ef0ff", "#5aa9ff", "#7a6cff", "#8a3ffc", "#5b1fa8"] },
   warm: { name: "Warm (yellow → magenta)", type: "seq", c: ["#ffe29a", "#ffb36b", "#ff7a5c", "#e0457b", "#8e2a8e"] },
-  mono: { name: "Purple shades", type: "seq", c: ["#e6dcff", "#b9a2ff", "#8c6cf0", "#6142c4", "#3a2580"] },
 };
 
 export const hex2rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 export const rgb2hex = (a: number[]) => "#" + a.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
 
 /** `accent` replaces the colors of the "accent" palette (from accentColors). */
-export function paletteColor(pal: PaletteId, hop: number, maxHop: number, accent?: string[] | null): string {
+export function paletteColor(pal: PaletteId, hop: number, maxHop: number, accent?: string[] | null, dark = false): string {
   const P = PALETTES[pal] || PALETTES.default, c = pal === "accent" && accent ? accent : P.c;
   if (P.type === "cat") return c[Math.min(hop, c.length - 1)];
-  const t = Math.min(1, hop / Math.max(1, maxHop)) * (c.length - 1);
+  const far = Math.min(1, hop / Math.max(1, maxHop));
+  const t = (dark ? far : 1 - far) * (c.length - 1); // light background: near = dark; dark background: near = light
   const i = Math.min(Math.floor(t), c.length - 2), f = t - i;
   const a = hex2rgb(c[i]), b = hex2rgb(c[i + 1]);
   return rgb2hex(a.map((v, k) => v + (b[k] - v) * f));
@@ -61,8 +65,9 @@ export function hsl2hex(h: number, s: number, l: number): string {
 }
 
 /**
- * Light-to-dark shades of the theme accent (focus brightest). Lightness and the saturation change follow the
- * fixed "Purple shades" palette, so Obsidian's default accent gives nearly the same colors.
+ * Light-to-dark shades of the theme accent (paletteColor gives the focus the darkest). Lightness and the saturation
+ * change follow the purple fallback colors of the "accent" palette, so Obsidian's default accent gives nearly those.
+ * (A separate "Purple shades" palette with the same colors was removed for that reason.)
  */
 const ACCENT_STOPS: [number, number][] = [[0.93, 1.15], [0.82, 1.15], [0.68, 0.92], [0.51, 0.6], [0.32, 0.62]];
 export function accentColors(rgb: number[]): string[] {
@@ -122,6 +127,18 @@ export function parseGroups(text: string): Group[] {
     groups.push({ query: x.query, clauses: parseQuery(x.query), color: groupColor(x.color) });
   }
   return groups;
+}
+
+/** The graph view's display sliders that the disk follows (graph.json "Node size" and "Link thickness"). */
+export interface GraphDisplay { nodeSize: number; lineSize: number }
+export const GRAPH_DISPLAY: GraphDisplay = { nodeSize: 1, lineSize: 1 };
+
+/** graph.json → node size and link thickness multipliers; missing or odd values give 1. */
+export function parseGraphDisplay(text: string): GraphDisplay {
+  const j: unknown = JSON.parse(text);
+  if (!isObject(j)) return { ...GRAPH_DISPLAY };
+  const mult = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 && v <= 10 ? v : 1);
+  return { nodeSize: mult(j.nodeSizeMultiplier), lineSize: mult(j.lineSizeMultiplier) };
 }
 
 /** First matching group from the top (unverified: Obsidian's precedence). */

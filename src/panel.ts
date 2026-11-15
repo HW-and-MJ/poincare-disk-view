@@ -34,9 +34,6 @@ export function buildPanel(el: HTMLElement, host: PanelHost) {
   };
 
   const look = section("Display");
-  new Setting(look).setName("Style").addDropdown((d) => d
-    .addOptions({ cell: "Filled cells", node: "Nodes and links" })
-    .setValue(s.style).onChange((v) => set({ style: v as PdvSettings["style"] })));
   new Setting(look).setName("Color by")
     .setDesc(s.colorMode === "group" ? "Groups from the graph view settings" : "")
     .addDropdown((d) => d
@@ -51,6 +48,8 @@ export function buildPanel(el: HTMLElement, host: PanelHost) {
   new Setting(look).setName("Tiling").addDropdown((d) => d
     .addOptions(TILING_LABELS).setValue(`${s.p},${s.q}`)
     .onChange((v) => { const [p, q] = v.split(",").map(Number); set({ p, q }); }));
+  toggle(look, "diskShade");
+  toggle(look, "fadeFar");
   toggle(look, "grid");
   toggle(look, "showLegend");
 
@@ -61,6 +60,7 @@ export function buildPanel(el: HTMLElement, host: PanelHost) {
   const behave = section("Behavior");
   toggle(behave, "followActive");
   toggle(behave, "showOrphans");
+  toggle(behave, "openAnimation");
 
   new Setting(el).addButton((b) => b.setButtonText("Restore defaults").onClick(() => {
     set({ ...DEFAULT_SETTINGS });

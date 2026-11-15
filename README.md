@@ -2,9 +2,9 @@
 
 **A focus view for vaults that have grown too large to see at once.**
 
-![Poincaré disk view: clicking a note brings it to the center, dragging looks around, and notes can be drawn as nodes or as tiling cells](docs/demo.gif)
+![Light and dark theme side by side: right-click a note in the graph view and open it in the Poincaré disk view; the graph's nodes move onto the disk around it. Drag to look around, click a note to bring it to the center, press Esc to go back to the graph.](docs/graph-open.gif)
 
-<sub>Rendered with the plugin's own layout and drawing code on a generated vault of 800 notes, in Obsidian's default light theme.</sub>
+<sub>A generated wiki of about 600 notes. The disk, its transitions and the return to the graph are rendered with the plugin's own code and default settings; the graph view and its menu are reconstructed for the recording. Light and dark theme side by side. Video: <a href="docs/graph-open.mp4">graph-open.mp4</a>.</sub>
 
 Once a vault holds hundreds or thousands of notes, the graph view stops showing structure. Every note is drawn with the same weight, the links pile up into one dense tangle, and the notes around the one you are working on are lost in the crowd.
 
@@ -17,7 +17,7 @@ Once a vault holds hundreds or thousands of notes, the graph view stops showing 
 
 Poincaré disk view starts from a single note instead of the whole vault. It puts that note at the center of a [Poincaré disk](https://en.wikipedia.org/wiki/Poincar%C3%A9_disk_model), a picture of the hyperbolic plane in which space grows exponentially toward the rim, and places the surrounding notes on a regular hyperbolic tiling:
 
-- Notes one or two links away get large, readable cells near the center.
+- Notes one or two links away get large, readable nodes near the center.
 - Notes farther away shrink toward the rim and fade out. They stay in view as context but no longer compete for attention.
 - Click any note and the disk glides to put it at the center, unfolding its own neighborhood.
 
@@ -27,6 +27,7 @@ This is focus + context for your notes: one note's neighborhood in detail, and t
 
 - Open it from the ribbon (circle icon) or the command **Poincaré disk view: Open view**.
 - The view starts at the note you opened most recently, or at the most linked note.
+- In Obsidian’s built-in Graph view, right-click a note and choose **Open in Poincaré disk view**: the disk opens over the graph, and the graph’s own nodes slide, grow or shrink onto it around that note. The graph view stays as it is underneath. Press <kbd>Esc</kbd>, the tab’s back button (←) or the mouse back button to return: the nodes move back to where the graph draws them and the disk lifts off. **Open in Poincaré disk view (new tab)** keeps the graph and opens the disk next to it. Both items are also in the file menu elsewhere (file explorer, tab header).
 - **Click** a note to move it to the center. **Drag** to move around the disk.
 - **Double-click** a note to open it. Hold <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> to open it in a new tab.
 - Hover a note for its path, distance and tags.
@@ -37,12 +38,12 @@ This is focus + context for your notes: one note's neighborhood in detail, and t
 
 The settings panel (gear button) changes the view right away:
 
-- **Style**: nodes and links, or filled tiling cells.
-- **Color by**: distance from the center (palettes include one built from your theme accent), or the groups from the graph view settings.
+- Links take the graph view's color and thickness and nodes its node size, so the disk looks like the graph. **Link thickness** and **Link contrast** adjust the links; **Disk shading** and **Tiling grid** (off by default) add a gray disk and the tiling lines; **Fade with distance** (on) makes notes and links fainter toward the rim.
+- **Color by**: the groups from the graph view settings (default), or distance from the center. Distance palettes (one is built from your theme accent) make near notes stand out most from the background: darkest in a light theme, lightest in a dark one.
 - **Tiling**: the regular hyperbolic tiling {p,q} the notes are placed on.
 - **Layout**: max hops, hub penalty, max children per note (extras are bundled into a +N cell), hide radius.
-- **Size**: cell size, node size, label threshold, cross-link opacity.
-- Notes without any links are hidden unless **Show orphans** is on.
+- **Size**: cell size (spacing of the tiling), node size, label threshold, cross-link opacity, fade amount, link thickness and contrast.
+- **Show orphans** lets notes without links appear in the disk’s note search and become the focus automatically. You can always center a note explicitly from its file menu.
 
 Graph view groups are read from `.obsidian/graph.json`. Only `path:`, `file:`, `tag:`, `-` and `OR` are supported; plain words match the file path, not the note content.
 
@@ -74,6 +75,10 @@ npm run build   # type check and production build
 ```
 
 Release: `npm run bump -- 0.2.0`, commit, then push a tag `0.2.0`. GitHub Actions builds a draft release with the plugin files.
+
+## Credits
+
+Poincaré disk view is made by [@hyewonnavie](https://github.com/hyewonnavie) and [@jmj3078](https://github.com/jmj3078).
 
 ## License
 

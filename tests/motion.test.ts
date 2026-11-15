@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { abs2, hdist, mApply, M_ID } from "../src/geometry.ts";
-import { bestRotation, blendShown, diskOf, dragTransform, FAR, geoLerp, hitTest, moveTransform, rotation, toDisk } from "../src/motion.ts";
+import { bestRotation, blendShown, diskOf, dragTransform, FAR, geoLerp, hitTest, moveTransform, rotation, toDisk, unfoldAt, UNFOLD_ZOOM, warp, warpScale } from "../src/motion.ts";
 import { layoutFocus, TilingCache } from "../src/scene.ts";
 import { DEFAULT_SETTINGS } from "../src/settings.ts";
 import { genGraph, mostLinked } from "./fake-graph.ts";
@@ -71,4 +71,35 @@ test("geoLerp ends at both points; bestRotation recovers a rotation", () => {
     const got = bestRotation(L.pos, from);
     assert.ok(Math.abs(Math.atan2(Math.sin(got - th), Math.cos(got - th))) < 1e-9, `θ ${th} → ${got}`);
   }
+});
+
+test("warp: curvature 1 is the disk, curvature 0 a flat plane, and the plane bends steadily in between", () => {
+  const z = { x: 0.6, y: -0.3 }, r = Math.sqrt(abs2(z)), d = 2 * Math.atanh(r);
+  const same = warp(z, 1);
+  assert.ok(close(same.x, z.x) && close(same.y, z.y));
+  assert.ok(close(Math.sqrt(abs2(warp(z, 0))), d / 2));
+  // Direction is kept; radius shrinks toward the disk as curvature grows.
+  const radii = [0, 0.25, 0.5, 0.75, 1].map((c) => { const q = warp(z, c); assert.ok(close(q.x * z.y, q.y * z.x)); return Math.sqrt(abs2(q)); });
+  for (let i = 1; i < radii.length; i++) assert.ok(radii[i] < radii[i - 1]);
+  assert.deepEqual(warp({ x: 0, y: 0 }, 0.3), { x: 0, y: 0 });
+});
+
+test("warpScale matches the local stretch of warp", () => {
+  for (const c of [0, 0.3, 0.8, 1]) {
+    const z = { x: 0.7, y: 0 }, h = 1e-6;
+    const num = (warp({ x: z.x + h, y: 0 }, c).x - warp({ x: z.x - h, y: 0 }, c).x) / (2 * h);
+    assert.ok(close(warpScale(z, c), num, 1e-5), `c=${c}`);
+  }
+  assert.equal(warpScale({ x: 0.5, y: 0.5 }, 1), 1);
+  assert.ok(close(warpScale({ x: 0, y: 0 }, 0.4), 1));
+});
+
+test("unfold starts flat, small and at the clicked point, and ends as the plain disk", () => {
+  const start = { x: 120, y: -80 };
+  const a = unfoldAt(0, start), b = unfoldAt(1, start), mid = unfoldAt(0.5, start);
+  assert.deepEqual(a, { c: 0, S: UNFOLD_ZOOM, O: start });
+  assert.ok(close(b.c, 1) && close(b.S, 1) && close(b.O.x, 0) && close(b.O.y, 0));
+  assert.ok(mid.c > 0 && mid.c < 1 && mid.S > UNFOLD_ZOOM && mid.S < 1);
+  // Zoom leads curvature: the plane grows around the note before it bends into the disk.
+  assert.ok((mid.S - UNFOLD_ZOOM) / (1 - UNFOLD_ZOOM) > mid.c);
 });

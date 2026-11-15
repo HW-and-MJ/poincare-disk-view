@@ -23,7 +23,7 @@ const theme = { background: "#111", disk: "#000", border: "#333", text: "#ddd", 
 
 for (const style of ["cell", "node"] as const) {
   test(`draws ${style} style with finite coordinates`, () => {
-    const s: PdvSettings = { ...DEFAULT_SETTINGS, style };
+    const s: PdvSettings = { ...DEFAULT_SETTINGS, style, nodeFill: 0.9 }; // large enough for labels inside cells
     const g = genGraph(800, 2, 7), tc = new TilingCache();
     const L = layoutFocus(g, mostLinked(g), s, tc);
     const scene: Scene = { g, T: L.T, cellOf: L.cellOf, cells: tc.view(s.p, s.q, s.cellScale), V: M_ID, shown: L.pos, hover: null, s, color: colorer(s, { accent: null, groups: [], noteGroup: null }) };
@@ -41,4 +41,13 @@ test("no scene draws only the empty disk", () => {
   const { ctx, calls } = fakeCtx();
   assert.equal(drawScene(ctx, { w: 400, h: 300, dpr: 1 }, null, theme), 0);
   assert.equal(calls.filter((c) => c.name === "fill").length, 1);
+});
+
+test("distance fade: full at the center, faint at the rim, never gone", async () => {
+  const { distanceFade } = await import("../src/render.ts");
+  assert.equal(distanceFade({ x: 0, y: 0 }), 1);
+  assert.ok(distanceFade({ x: 0.5, y: 0 }) < 1 && distanceFade({ x: 0.9, y: 0 }) < distanceFade({ x: 0.5, y: 0 }));
+  assert.ok(Math.abs(distanceFade({ x: 1, y: 0 }) - 0.15) < 1e-12);
+  assert.equal(distanceFade({ x: 0.9, y: 0 }, 0), 1, "amount 0: no fade");
+  assert.ok(Math.abs(distanceFade({ x: 1, y: 0 }, 0.5) - 0.5) < 1e-12, "rim at 1 − amount");
 });

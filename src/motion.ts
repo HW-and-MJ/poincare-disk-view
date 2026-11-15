@@ -110,3 +110,47 @@ export function blendShown(pos: Map<NodeKey, C>, V: Mobius, from: Map<NodeKey, C
   }
   return { shown, alpha };
 }
+
+// ---- Opening transition: a flat plane curving into the disk ----
+
+/**
+ * The hyperbolic plane drawn as if its curvature were −c (0 ≤ c ≤ 1), in units of the disk radius. A note at
+ * hyperbolic distance d from the center sits at radius tanh(√c·d/2)/√c: at c = 1 that is the Poincaré disk itself,
+ * at c = 0 it is d/2, a flat plane where distances are not compressed toward any rim.
+ */
+export function warp(z: C, c: number): C {
+  const r = Math.sqrt(abs2(z));
+  if (r === 0 || c >= 1) return z;
+  const k = curvedRadius(r, c) / r;
+  return { x: z.x * k, y: z.y * k };
+}
+
+function curvedRadius(r: number, c: number) {
+  const d = 2 * Math.atanh(Math.min(r, 0.999999));
+  return c < 1e-6 ? d / 2 : Math.tanh((Math.sqrt(c) * d) / 2) / Math.sqrt(c);
+}
+
+/** How much larger a small shape at z is drawn under warp(·, c) than in the Poincaré disk. */
+export function warpScale(z: C, c: number): number {
+  if (c >= 1) return 1;
+  const r2 = Math.min(abs2(z), 0.999998), rho = curvedRadius(Math.sqrt(r2), c);
+  return (1 - c * rho * rho) / (1 - r2);
+}
+
+/** One frame of the opening transition: curvature c, zoom S and the disk center's offset O (device px). */
+export interface Unfold { c: number; S: number; O: C }
+
+/** Zoom at the start of the opening transition. */
+export const UNFOLD_ZOOM = 0.2;
+
+const easeOut = (t: number) => 1 - (1 - t) ** 3;
+
+/**
+ * Opening transition at time t ∈ [0, 1], starting from a flat plane, zoomed out and centered at `start` (offset of
+ * the clicked point from the disk center, device px). The zoom and slide lead, the curvature follows, so the
+ * plane first grows around the note and then bends into the disk.
+ */
+export function unfoldAt(t: number, start: C): Unfold {
+  const m = easeOut(Math.min(1, Math.max(0, t))), c = ease(Math.min(1, Math.max(0, (t - 0.1) / 0.9)));
+  return { c, S: UNFOLD_ZOOM + (1 - UNFOLD_ZOOM) * m, O: { x: start.x * (1 - m), y: start.y * (1 - m) } };
+}

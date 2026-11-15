@@ -52,6 +52,10 @@ export interface ColorContext {
   groups: Group[];
   /** Group index per note (−1 = none); null until groups are assigned. */
   noteGroup: Int32Array | null;
+  /** Color of notes in no group: the graph view's own node color once the view has read it. */
+  noGroup?: string;
+  /** Dark theme: sequential palettes run the other way (near notes lightest). */
+  dark?: boolean;
 }
 
 const BUNDLE_COLOR = "#4a4a4f";
@@ -62,9 +66,9 @@ export function colorer(s: PdvSettings, cc: ColorContext) {
     if (n.id < 0) return BUNDLE_COLOR;
     if (s.colorMode === "group") {
       const gi = cc.noteGroup ? cc.noteGroup[n.id] : -1;
-      return gi >= 0 ? cc.groups[gi].color : NO_GROUP_COLOR;
+      return gi >= 0 ? cc.groups[gi].color : cc.noGroup ?? NO_GROUP_COLOR;
     }
-    return paletteColor(s.palette, n.hop, s.maxHop, cc.accent);
+    return paletteColor(s.palette, n.hop, s.maxHop, cc.accent, cc.dark);
   };
 }
 
@@ -78,11 +82,11 @@ export function legendItems(s: PdvSettings, cc: ColorContext, noteCount: number)
     else cnt[cc.groups.length] = noteCount;
     return [
       ...cc.groups.map((g, i) => ({ color: g.color, label: `${g.query} (${cnt[i]})` })),
-      { color: NO_GROUP_COLOR, label: `No group (${cnt[cc.groups.length]})` },
+      { color: cc.noGroup ?? NO_GROUP_COLOR, label: `No group (${cnt[cc.groups.length]})` },
     ];
   }
   return Array.from({ length: s.maxHop + 1 }, (_, h) => ({
-    color: paletteColor(s.palette, h, s.maxHop, cc.accent),
+    color: paletteColor(s.palette, h, s.maxHop, cc.accent, cc.dark),
     label: h === 0 ? "Focus" : h === 1 ? "1 hop" : `${h} hops`,
   }));
 }
