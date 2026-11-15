@@ -36,7 +36,9 @@ jobs:
           npm test
           npm run build
 
+      # Attestations are not available for private repositories on personal accounts; skip them there.
       - name: Generate artifact attestation
+        if: ${{ !github.event.repository.private }}
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
