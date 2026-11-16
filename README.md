@@ -28,6 +28,7 @@ This is focus + context for your notes: one note's neighborhood in detail, and t
 - Open it from the ribbon (circle icon) or the command **Poincaré disk view: Open view**.
 - The view starts at the note you opened most recently, or at the most linked note.
 - In Obsidian’s built-in Graph view, right-click a note and choose **Open in Poincaré disk view**: the disk opens over the graph, and the graph’s own nodes slide, grow or shrink onto it around that note. The graph view stays as it is underneath. Press <kbd>Esc</kbd>, the tab’s back button (←) or the mouse back button to return: the nodes move back to where the graph draws them and the disk lifts off. **Open in Poincaré disk view (new tab)** keeps the graph and opens the disk next to it. Both items are also in the file menu elsewhere (file explorer, tab header).
+- In the Graph view, **Search center note…** (top left) finds any note by name and opens it on the disk over the graph, without looking for it among the nodes. Also the command **Poincaré disk view: Search for a center note from the graph view**.
 - **Click** a note to move it to the center. **Drag** to move around the disk.
 - **Double-click** a note to open it. Hold <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> to open it in a new tab.
 - Hover a note for its path, distance and tags.

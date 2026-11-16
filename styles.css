@@ -125,3 +125,17 @@
   background: var(--background-primary);
 }
 .pdv-text-probe { display: none; color: var(--text-normal); }
+
+/* Independent of the core graph filter; below the disk overlay when it opens. */
+.pdv-graph-search-host { position: relative; }
+button.pdv-graph-search {
+  position: absolute;
+  z-index: 4;
+  top: var(--size-4-2);
+  left: var(--size-4-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  font-size: var(--font-ui-small);
+}
+.pdv-graph-search span:first-child { display: inline-flex; }

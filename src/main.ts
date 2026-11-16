@@ -1,4 +1,4 @@
-import { debounce, getAllTags, ItemView, normalizePath, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
+import { debounce, getAllTags, ItemView, normalizePath, Plugin, setIcon, TFile, type WorkspaceLeaf } from "obsidian";
 import { canFocus, pickInitialFocus } from "./focus.ts";
 import { graphFromLinks, noteSignature, type Graph } from "./graph.ts";
 import { assignGroups, GRAPH_DISPLAY, PALETTES, parseGraphDisplay, parseGroups, type GraphDisplay, type Group } from "./colors.ts";
@@ -30,6 +30,7 @@ export default class PoincareDiskPlugin extends Plugin {
   private menuOrigin?: { document: Document; point: C; time: number };
   /** Disks drawn over graph views (graph-overlay.ts), one per graph view. */
   private graphOverlays = new Map<ItemView, GraphDiskOverlay>();
+  private graphSearch = new Map<ItemView, { button: HTMLButtonElement; cleanup: () => void }>();
   /** Edits arrive in bursts while typing; handle them together. */
   private scheduleRefresh = debounce(() => this.refreshGraph(), 600, true);
 
@@ -45,7 +46,23 @@ export default class PoincareDiskPlugin extends Plugin {
     this.addCommand({
       id: "focus-note",
       name: "Find a note to put at the center",
-      callback: async () => this.openSearch(await this.openView()),
+      callback: async () => {
+        const view = this.activeGraphView();
+        const disk = view && this.graphOverlays.get(view)?.disk;
+        if (disk) this.openSearch(disk);
+        else if (view) this.searchFromGraph(view);
+        else this.openSearch(await this.openView());
+      },
+    });
+    this.addCommand({
+      id: "focus-from-graph",
+      name: "Search for a center note from the graph view",
+      checkCallback: (checking) => {
+        const view = this.activeGraphView();
+        if (!view || this.graphOverlays.has(view)) return false;
+        if (!checking) this.searchFromGraph(view);
+        return true;
+      },
     });
 
     this.captureMenuOrigin(document);
@@ -79,7 +96,9 @@ export default class PoincareDiskPlugin extends Plugin {
     this.registerEvent(this.app.metadataCache.on("changed", (file) => { this.dirty.add(file.path); }));
     this.registerEvent(this.app.metadataCache.on("resolve", (file) => { this.dirty.add(file.path); }));
     this.registerEvent(this.app.metadataCache.on("resolved", () => this.scheduleRefresh()));
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.syncGraphSearch()));
     this.app.workspace.onLayoutReady(() => {
+      this.syncGraphSearch();
       const structural = () => { this.structural = true; this.scheduleRefresh(); };
       this.registerEvent(this.app.vault.on("create", structural));
       this.registerEvent(this.app.vault.on("delete", structural));
@@ -106,8 +125,56 @@ export default class PoincareDiskPlugin extends Plugin {
     if (x >= left && x <= right && y >= top && y <= bottom) return origin.point;
   }
 
+  private activeGraphView(): ItemView | null {
+    const view = this.app.workspace.getMostRecentLeaf()?.view;
+    return view instanceof ItemView && ["graph", "localgraph"].includes(view.getViewType()) ? view : null;
+  }
+
+  private syncGraphSearch() {
+    const views = new Set<ItemView>();
+    for (const type of ["graph", "localgraph"]) for (const { view } of this.app.workspace.getLeavesOfType(type)) {
+      if (view instanceof ItemView && view.contentEl.isConnected) views.add(view);
+    }
+    for (const [view, control] of this.graphSearch) {
+      if (views.has(view) && control.button.parentElement === view.contentEl) continue;
+      control.cleanup();
+      this.graphSearch.delete(view);
+    }
+    for (const view of views) {
+      if (this.graphSearch.has(view)) continue;
+      const el = view.contentEl;
+      const positioned = el.win.getComputedStyle(el).position === "static";
+      if (positioned) el.addClass("pdv-graph-search-host");
+      const button = el.createEl("button", {
+        cls: "pdv-graph-search",
+        attr: { type: "button", "aria-label": "Search for a Poincaré center note", "aria-haspopup": "dialog" },
+      });
+      setIcon(button.createSpan({ attr: { "aria-hidden": "true" } }), "search");
+      button.createSpan({ text: "Search center note…" });
+      button.addEventListener("click", () => {
+        const disk = this.graphOverlays.get(view)?.disk;
+        if (disk) this.openSearch(disk);
+        else this.searchFromGraph(view);
+      });
+      this.graphSearch.set(view, { button, cleanup: () => {
+        button.remove();
+        if (positioned) el.removeClass("pdv-graph-search-host");
+      } });
+    }
+  }
+
+  private searchFromGraph(view: ItemView) {
+    // Search note filenames in a modal. Never write the native graph search/filter or open the note editor.
+    new FocusSearchModal(this.app, this.app.vault.getMarkdownFiles(), (file) => {
+      // Let the picker close before the overlay takes keyboard focus (including Escape).
+      view.contentEl.win.requestAnimationFrame(() => this.openOverGraph(view, file.path));
+    }).open();
+  }
+
   onunload() {
     for (const [view, overlay] of this.graphOverlays) view.removeChild(overlay);
+    for (const { cleanup } of this.graphSearch.values()) cleanup();
+    this.graphSearch.clear();
   }
 
   /** Draw the disk over this graph view. Its drawing is read first so its nodes can morph onto the disk. */
@@ -119,7 +186,6 @@ export default class PoincareDiskPlugin extends Plugin {
     if (this.settings.openAnimation) {
       try {
         snapshot = readNativeGraph(view);
-        if (!snapshot?.frame.nodes.has(path)) snapshot = null;
       } catch (error) {
         console.error("Poincaré disk view: could not read the graph view", error);
       }
