@@ -1,12 +1,14 @@
 # Poincare disk view
 
-**A focus view for vaults that have grown too large to see at once.**
+**A focus view for vaults that have grown too large to see at once, such as an LLM wiki.**
 
 ![Light and dark theme side by side: right-click a note in the graph view and open it in the Poincaré disk view; the graph's nodes move onto the disk around it. Drag to look around, click a note to bring it to the center, press Esc to go back to the graph.](docs/graph-open.gif)
 
 <sub>A generated wiki of about 600 notes. The disk, its transitions and the return to the graph are rendered with the plugin's own code and default settings; the graph view and its menu are reconstructed for the recording. Light and dark theme side by side. Video: <a href="docs/graph-open.mp4">graph-open.mp4</a>.</sub>
 
 Once a vault holds hundreds or thousands of notes, the graph view stops showing structure. Every note is drawn with the same weight, the links pile up into one dense tangle, and the notes around the one you are working on are lost in the crowd.
+
+This happens quickly with an **LLM wiki**, a vault that a language model writes and maintains for you: it turns sources into summaries, concept pages and entity pages, and links each new page to many others. Such a wiki can grow by dozens of pages in one session, much faster than you read it. The more notes there are, the harder it becomes to see how one document relates to the rest, which is exactly what you need to check when a model made the connections.
 
 <table>
   <tr>
@@ -22,6 +24,15 @@ Poincaré disk view starts from a single note instead of the whole vault. It put
 - Click any note and the disk glides to put it at the center, unfolding its own neighborhood.
 
 This is focus + context for your notes: one note's neighborhood in detail, and the rest of the vault as a horizon. Hyperbolic space suits link neighborhoods because both grow exponentially. A circle of radius r has circumference 2π·sinh r, so the notes two, three and four links out still fit without piling up. The approach follows the hyperbolic browser of Lamping, Rao and Pirolli (CHI '95).
+
+## Made for LLM wikis
+
+The plugin needs nothing beyond what an LLM wiki already has: the links between notes, as Obsidian resolves them (`[[wikilinks]]` and Markdown links), plus tags and folders for the colors. Whatever tool or agent writes the notes, there is no format to follow and nothing to set up:
+
+- Open the page the model just wrote and see what it is connected to, one and two links out, instead of hunting for it in the full graph.
+- Index and overview pages that link to everything do not swallow the layout: paths through such hubs cost more (**Hub penalty**), so notes are placed under their more specific neighbors.
+- The view follows the note open in the editor and updates as the model adds or changes notes.
+- Graph view groups by folder or tag (for example `path:wiki/concepts`, `tag:#source`) color the notes the same way on the disk.
 
 ## Use
 
