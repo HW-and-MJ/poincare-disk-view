@@ -37,11 +37,11 @@ export class Projection {
   constructor(original: Frame, tiles: TilingCache) {
     this.original = original;
     this.tiles = tiles;
-    const links: Record<string, Record<string, number>> = Object.create(null);
-    const tags: Record<string, string[]> = Object.create(null);
+    const links = Object.create(null) as Record<string, Record<string, number>>;
+    const tags = Object.create(null) as Record<string, string[]>;
     for (const id of original.nodes.keys()) {
       tags[id] = [];
-      links[id] = Object.create(null);
+      links[id] = Object.create(null) as Record<string, number>;
     }
     for (const { source, target } of original.links.values()) links[source][target] = 1;
     this.graph = graphFromLinks(links, tags);

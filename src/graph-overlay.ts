@@ -66,7 +66,7 @@ export class GraphDiskOverlay extends Component {
   /** While the overlay is open, this tab's back button closes it instead of leaving the graph. */
   private captureBackButton() {
     const back = this.view.containerEl.querySelector(".view-header-nav-buttons")?.firstElementChild;
-    if (!(back instanceof HTMLElement)) return;
+    if (!back?.instanceOf(HTMLElement)) return;
     // With no history the button is disabled; enable it for the overlay and restore it afterwards.
     const disabled = back.hasAttribute("disabled"), dimmed = back.hasClass("is-disabled");
     back.removeAttribute("disabled");
@@ -76,7 +76,8 @@ export class GraphDiskOverlay extends Component {
       if (dimmed) back.addClass("is-disabled");
     });
     this.registerDomEvent(this.view.containerEl, "click", (event) => {
-      if (!(event.target instanceof Node) || !back.contains(event.target)) return;
+      const target = event.target as Node | null;
+      if (!target || !back.contains(target)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       this.close();
