@@ -25,15 +25,6 @@ Poincaré disk view starts from a single note instead of the whole vault. It put
 
 This is focus + context for your notes: one note's neighborhood in detail, and the rest of the vault as a horizon. Hyperbolic space suits link neighborhoods because both grow exponentially. A circle of radius r has circumference 2π·sinh r, so the notes two, three and four links out still fit without piling up. The approach follows the hyperbolic browser of Lamping, Rao and Pirolli (CHI '95).
 
-## Made for LLM wikis
-
-The plugin needs nothing beyond what an LLM wiki already has: the links between notes, as Obsidian resolves them (`[[wikilinks]]` and Markdown links), plus tags and folders for the colors. Whatever tool or agent writes the notes, there is no format to follow and nothing to set up:
-
-- Open the page the model just wrote and see what it is connected to, one and two links out, instead of hunting for it in the full graph.
-- Index and overview pages that link to everything do not swallow the layout: paths through such hubs cost more (**Hub penalty**), so notes are placed under their more specific neighbors.
-- The view follows the note open in the editor and updates as the model adds or changes notes.
-- Graph view groups by folder or tag (for example `path:wiki/concepts`, `tag:#source`) color the notes the same way on the disk.
-
 ## Use
 
 - Open it from the ribbon (circle icon) or the command **Poincaré disk view: Open view**.
