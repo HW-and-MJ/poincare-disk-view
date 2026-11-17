@@ -1,7 +1,7 @@
 {
   "id": "poincare-disk-view",
   "name": "Poincare disk view",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "minAppVersion": "1.7.2",
   "description": "Focus on one note in a large vault: put it at the center of a Poincare disk and show its linked neighborhood on a hyperbolic tiling.",
   "author": "hyewonnavie and jmj3078",

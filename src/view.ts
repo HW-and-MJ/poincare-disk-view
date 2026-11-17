@@ -541,7 +541,7 @@ export class PoincareDisk extends Component {
 
   /** Offscreen layer i at the canvas size, cleared. */
   private layer(i: number, f: Frame): CanvasRenderingContext2D {
-    const el = this.layers[i] ??= this.win.document.createElement("canvas");
+    const el = this.layers[i] ??= createEl("canvas"); // offscreen: never attached, so any window can draw it
     if (el.width !== f.w) el.width = f.w;
     if (el.height !== f.h) el.height = f.h;
     const l = el.getContext("2d")!;
